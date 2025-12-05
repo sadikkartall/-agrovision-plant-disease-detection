@@ -1,0 +1,19 @@
+# Plant Disease Detection Web Application - Requirements
+# Python 3.8+ required
+
+# Web Framework
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Deep Learning
+tensorflow>=2.8.0
+
+# Image Processing
+Pillow>=9.5.0
+
+# Scientific Computing
+numpy>=1.21.0
+
+# Production Server
+gunicorn>=20.1.0
+
