@@ -3,13 +3,18 @@ nixPkgs = ["git", "git-lfs"]
 
 [phases.install]
 cmds = [
-  "git lfs install",
-  "git lfs pull || true",
+  "git lfs install || echo 'Git LFS already installed'",
+  "git lfs pull || (echo 'Git LFS pull failed, trying alternative method...' && git lfs fetch && git lfs checkout) || echo 'Git LFS checkout failed'",
+  "echo 'Checking for model file...'",
+  "ls -lah models/ || echo 'models/ directory not found'",
+  "find . -name '*.keras' -type f -exec ls -lh {} \\; || echo 'No .keras files found'",
   "pip install -r requirements.txt"
 ]
 
 [phases.build]
 cmds = [
-  "echo 'Build completed'"
+  "echo 'Build completed'",
+  "echo 'Final check for model file:'",
+  "ls -lah models/mobilenetv2_best.keras || echo 'Model file still not found'"
 ]
 

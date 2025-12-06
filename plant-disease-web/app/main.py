@@ -41,58 +41,102 @@ def initialize_app():
         print("Uygulama başlatılıyor...")
         print("=" * 50)
         
-        # Proje root'unu bul
-        project_root = Path(__file__).parent.parent
+        # Proje root'unu bul - Railway'de root directory plant-disease-web olabilir
+        current_dir = Path(os.getcwd())
+        file_dir = Path(__file__).parent.parent
+        
+        # Railway'de root directory plant-disease-web ise, working directory zaten orada
+        # Eğer models/ klasörü current_dir'de varsa, orayı kullan
+        if (current_dir / "models" / "mobilenetv2_best.keras").exists():
+            project_root = current_dir
+        elif (file_dir / "models" / "mobilenetv2_best.keras").exists():
+            project_root = file_dir
+        else:
+            # Son çare: current_dir'i kullan
+            project_root = current_dir
+        
         print(f"📂 Project root: {project_root}")
         print(f"📂 Current working directory: {os.getcwd()}")
+        print(f"📂 File directory: {file_dir}")
         
-        # Model ve data yollarını oluştur
-        model_path = project_root / "models" / "mobilenetv2_best.keras"
-        class_names_path = project_root / "data" / "class_names.json"
+        # Model ve data yollarını oluştur - birden fazla yol dene
+        possible_model_paths = [
+            project_root / "models" / "mobilenetv2_best.keras",
+            current_dir / "models" / "mobilenetv2_best.keras",
+            file_dir / "models" / "mobilenetv2_best.keras",
+            Path("models") / "mobilenetv2_best.keras",
+        ]
+        
+        possible_class_paths = [
+            project_root / "data" / "class_names.json",
+            current_dir / "data" / "class_names.json",
+            file_dir / "data" / "class_names.json",
+            Path("data") / "class_names.json",
+        ]
+        
+        # İlk var olan yolu bul
+        model_path = None
+        for path in possible_model_paths:
+            if path.exists():
+                model_path = path
+                break
+        
+        class_names_path = None
+        for path in possible_class_paths:
+            if path.exists():
+                class_names_path = path
+                break
         
         # Dosya varlığını kontrol et
-        print(f"🔍 Checking model path: {model_path}")
-        print(f"   Exists: {model_path.exists()}")
-        if model_path.exists():
-            print(f"   Size: {model_path.stat().st_size / (1024*1024):.2f} MB")
+        print(f"🔍 Checking model paths:")
+        for path in possible_model_paths:
+            exists = path.exists()
+            print(f"   {path}: {'✅ EXISTS' if exists else '❌ NOT FOUND'}")
+            if exists:
+                print(f"      Size: {path.stat().st_size / (1024*1024):.2f} MB")
         
-        print(f"🔍 Checking class names path: {class_names_path}")
-        print(f"   Exists: {class_names_path.exists()}")
+        print(f"🔍 Checking class names paths:")
+        for path in possible_class_paths:
+            exists = path.exists()
+            print(f"   {path}: {'✅ EXISTS' if exists else '❌ NOT FOUND'}")
         
         # Dizin içeriğini listele (debug için)
-        models_dir = project_root / "models"
-        data_dir = project_root / "data"
-        print(f"📂 Models directory contents:")
-        if models_dir.exists():
-            for item in models_dir.iterdir():
-                print(f"   - {item.name} ({item.stat().st_size / (1024*1024):.2f} MB)" if item.is_file() else f"   - {item.name}/")
-        else:
-            print("   ❌ Models directory does not exist!")
-        
-        print(f"📂 Data directory contents:")
-        if data_dir.exists():
-            for item in data_dir.iterdir():
-                print(f"   - {item.name}")
-        else:
-            print("   ❌ Data directory does not exist!")
+        print(f"📂 Current directory tree (top 3 levels):")
+        try:
+            for root, dirs, files in os.walk(current_dir):
+                level = root.replace(str(current_dir), '').count(os.sep)
+                if level <= 2:
+                    indent = ' ' * 2 * level
+                    print(f"{indent}{os.path.basename(root)}/")
+                    subindent = ' ' * 2 * (level + 1)
+                    for file in files[:5]:  # İlk 5 dosya
+                        print(f"{subindent}{file}")
+                    if len(files) > 5:
+                        print(f"{subindent}... ({len(files)} more files)")
+        except Exception as e:
+            print(f"   Error listing directory: {e}")
         
         # Modeli yükle
-        if not model_path.exists():
-            raise FileNotFoundError(
-                f"Model dosyası bulunamadı: {model_path}\n"
-                f"Lütfen mobilenetv2_best.keras dosyasını models/ klasörüne koyun.\n"
-                f"Git LFS kullanıyorsanız, build sırasında 'git lfs pull' komutunu çalıştırdığınızdan emin olun."
-            )
+        if model_path is None or not model_path.exists():
+            error_msg = "Model dosyası bulunamadı. Denenen yollar:\n"
+            for path in possible_model_paths:
+                error_msg += f"  - {path}\n"
+            error_msg += "\nLütfen mobilenetv2_best.keras dosyasını models/ klasörüne koyun.\n"
+            error_msg += "Git LFS kullanıyorsanız, build sırasında 'git lfs pull' komutunu çalıştırdığınızdan emin olun."
+            raise FileNotFoundError(error_msg)
         
+        print(f"✅ Using model path: {model_path}")
         model = load_model(str(model_path))
         
         # Sınıf isimlerini yükle
-        if not class_names_path.exists():
-            raise FileNotFoundError(
-                f"Sınıf isimleri dosyası bulunamadı: {class_names_path}\n"
-                f"Lütfen class_names.json dosyasını data/ klasörüne koyun."
-            )
+        if class_names_path is None or not class_names_path.exists():
+            error_msg = "Sınıf isimleri dosyası bulunamadı. Denenen yollar:\n"
+            for path in possible_class_paths:
+                error_msg += f"  - {path}\n"
+            error_msg += "\nLütfen class_names.json dosyasını data/ klasörüne koyun."
+            raise FileNotFoundError(error_msg)
         
+        print(f"✅ Using class names path: {class_names_path}")
         class_names = load_class_names(str(class_names_path))
         
         print("=" * 50)
