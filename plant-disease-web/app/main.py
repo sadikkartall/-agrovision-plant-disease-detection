@@ -43,26 +43,71 @@ def initialize_app():
         
         # Proje root'unu bul
         project_root = Path(__file__).parent.parent
+        print(f"📂 Project root: {project_root}")
+        print(f"📂 Current working directory: {os.getcwd()}")
         
         # Model ve data yollarını oluştur
         model_path = project_root / "models" / "mobilenetv2_best.keras"
         class_names_path = project_root / "data" / "class_names.json"
         
+        # Dosya varlığını kontrol et
+        print(f"🔍 Checking model path: {model_path}")
+        print(f"   Exists: {model_path.exists()}")
+        if model_path.exists():
+            print(f"   Size: {model_path.stat().st_size / (1024*1024):.2f} MB")
+        
+        print(f"🔍 Checking class names path: {class_names_path}")
+        print(f"   Exists: {class_names_path.exists()}")
+        
+        # Dizin içeriğini listele (debug için)
+        models_dir = project_root / "models"
+        data_dir = project_root / "data"
+        print(f"📂 Models directory contents:")
+        if models_dir.exists():
+            for item in models_dir.iterdir():
+                print(f"   - {item.name} ({item.stat().st_size / (1024*1024):.2f} MB)" if item.is_file() else f"   - {item.name}/")
+        else:
+            print("   ❌ Models directory does not exist!")
+        
+        print(f"📂 Data directory contents:")
+        if data_dir.exists():
+            for item in data_dir.iterdir():
+                print(f"   - {item.name}")
+        else:
+            print("   ❌ Data directory does not exist!")
+        
         # Modeli yükle
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Model dosyası bulunamadı: {model_path}\n"
+                f"Lütfen mobilenetv2_best.keras dosyasını models/ klasörüne koyun.\n"
+                f"Git LFS kullanıyorsanız, build sırasında 'git lfs pull' komutunu çalıştırdığınızdan emin olun."
+            )
+        
         model = load_model(str(model_path))
         
         # Sınıf isimlerini yükle
+        if not class_names_path.exists():
+            raise FileNotFoundError(
+                f"Sınıf isimleri dosyası bulunamadı: {class_names_path}\n"
+                f"Lütfen class_names.json dosyasını data/ klasörüne koyun."
+            )
+        
         class_names = load_class_names(str(class_names_path))
         
         print("=" * 50)
-        print("Uygulama hazır!")
+        print("✅ Uygulama hazır!")
         print("=" * 50)
         
     except FileNotFoundError as e:
         print(f"❌ HATA: {e}")
         print("Lütfen model dosyasını ve class_names.json dosyasını kontrol edin.")
+        import traceback
+        traceback.print_exc()
     except Exception as e:
         print(f"❌ Beklenmeyen hata: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # Uygulama başlangıcında modeli yükle
@@ -150,25 +195,38 @@ def health_check():
     """
     global model, class_names
     
-    if model is None:
-        return jsonify({
-            "status": "error",
-            "message": "Model yüklenemedi"
-        }), 500
+    project_root = Path(__file__).parent.parent
+    model_path = project_root / "models" / "mobilenetv2_best.keras"
+    class_names_path = project_root / "data" / "class_names.json"
+    
+    response = {
+        "status": "ok" if model is not None and len(class_names) > 0 else "error",
+        "model_loaded": model is not None,
+        "class_names_loaded": len(class_names) > 0,
+        "model_file_exists": model_path.exists(),
+        "class_names_file_exists": class_names_path.exists(),
+        "model_path": str(model_path),
+        "class_names_path": str(class_names_path),
+        "current_directory": os.getcwd(),
+        "project_root": str(project_root)
+    }
+    
+    if model is not None:
+        response["num_classes"] = len(class_names)
+        response["model_input_shape"] = str(model.input_shape)
+        response["model_output_shape"] = str(model.output_shape)
+    else:
+        response["message"] = "Model yüklenemedi"
+        if not model_path.exists():
+            response["error"] = f"Model dosyası bulunamadı: {model_path}"
     
     if len(class_names) == 0:
-        return jsonify({
-            "status": "error",
-            "message": "Sınıf isimleri yüklenemedi"
-        }), 500
+        response["message"] = "Sınıf isimleri yüklenemedi"
+        if not class_names_path.exists():
+            response["error"] = f"Class names dosyası bulunamadı: {class_names_path}"
     
-    return jsonify({
-        "status": "ok",
-        "message": "Model ve sınıf isimleri yüklü",
-        "num_classes": len(class_names),
-        "model_input_shape": str(model.input_shape),
-        "model_output_shape": str(model.output_shape)
-    })
+    status_code = 200 if response["status"] == "ok" else 500
+    return jsonify(response), status_code
 
 
 if __name__ == '__main__':
