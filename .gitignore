@@ -177,11 +177,13 @@ tmp/
 *.pkl
 *.pickle
 *.joblib
+# Note: *.keras files will be tracked with Git LFS
 
 # Large data files
 *.csv
 *.json
 !config.json
+!plant-disease-web/data/class_names.json
 !requirements.txt
 !setup.py
 

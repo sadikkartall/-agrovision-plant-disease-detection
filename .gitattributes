@@ -1,0 +1,2 @@
+*.keras filter=lfs diff=lfs merge=lfs -text
+plant-disease-web/models/*.keras filter=lfs diff=lfs merge=lfs -text
